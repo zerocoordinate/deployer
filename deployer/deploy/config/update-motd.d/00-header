@@ -1,0 +1,4 @@
+#!/bin/sh
+
+#uname -a
+printf "%s\n" "$(lsb_release -s -d)"

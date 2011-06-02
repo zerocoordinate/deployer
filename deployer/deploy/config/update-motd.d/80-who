@@ -1,0 +1,7 @@
+#!/bin/sh
+echo "Uptime:"
+/usr/bin/uptime
+echo "Previous logins:"
+lastlog -t 30
+echo "Currently logged in:"
+who
