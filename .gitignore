@@ -23,7 +23,6 @@ Thumbs.db
 Desktop.ini
 
 #Python files
-
 *.py[co]
 
 # Packages
@@ -52,5 +51,7 @@ pip-log.txt
 #Django files
 *.log
 *.pot
-*.pyc
 local_settings.py
+
+#Emacs backup files
+*~
