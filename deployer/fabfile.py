@@ -250,9 +250,11 @@ def deploy():
 def update():
     require('domain', 'repository')
     install_site_files()
-    with cd('%(path)s/%(domain)s/site' % env):
-        sudo('source bin/activate; pip install -r requirements.txt' % env)
-        sudo('chown -R root:www-data .')
+    with cd('%(path)s/%(domain)s' % env):
+        sudo('virtualenv site' % env)
+        with cd('site'):
+            sudo('source bin/activate; pip install -r requirements.txt' % env)
+            sudo('chown -R root:www-data .')
     install_site_conf()
     compress()
     collectstatic()
