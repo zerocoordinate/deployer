@@ -206,6 +206,13 @@ def configure_nginx():
         'service nginx reload;'
         'initctl start uwsgi;')
 
+def reload_webserver():
+    sudo('service nginx reload')
+
+def reload_app():
+    require('domain')
+    sudo('touch %(path)s/%(domain)s/site/uwsgi.ini' % env)
+
 def install_site_files():
     ''' Default implementation uploads an archive from current project directory. '''
     require('domain', 'repository')
@@ -297,6 +304,19 @@ def loaddata(file):
     with cd('%(path)s/%(domain)s/site' % env):
         sudo('source bin/activate; %(app_name)s/manage.py loaddata /tmp/loaddata.json' % env)
     sudo('rm /tmp/loaddata.json')
+
+def rebuild_index():
+    require('domain', 'app_name')
+    with cd('%(path)s/%(domain)s/site' % env):
+        sudo('source bin/activate; %(app_name)s/manage.py rebuild_index --noinput' % env)
+        sudo('chown -R root:www-data %(app_name)s; chmod -R 750 %(app_name)s' % env)
+        if exists('./%(app_name)s/_whoosh/' % env, use_sudo=True):
+            sudo('chmod -R 770 ./%(app_name)s/_whoosh/' % env)
+
+def update_index():
+    require('domain', 'app_name')
+    with cd('%(path)s/%(domain)s/site' % env):
+        sudo('source bin/activate; %(app_name)s/manage.py update_index' % env)
 
 
 def new_server():
