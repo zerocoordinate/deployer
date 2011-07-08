@@ -17,7 +17,7 @@ def check_dirs():
 def check_terminal():
     run('echo $TERM', pty=True)
 
-def create_users():
+def create_users(user=None):
     '''
     Creates users for all usernames listed in the USERS variable. Each user
     must have an authorized_keys file available in order to be created.
@@ -27,10 +27,12 @@ def create_users():
     '''
     prev_env_user = env.user
     require('users', 'default_password', 'users_dir')
+    if user is not None:
+        env.users = (user,)
     for user in env.users:
         # Only create a user if we have a valid authorized_keys file for them.
         if os.path.exists(os.path.join(env.users_dir, user, '.ssh', 'authorized_keys')):
-            run('useradd -m %(user)s -g sudo -s /bin/bash;'
+            sudo('useradd -m %(user)s -g sudo -s /bin/bash;'
                 'echo "%(user)s:%(password)s" | sudo chpasswd;'
                 'passwd -e %(user)s' % {'user':user, 'password':env.default_password}, pty=True)
             local('tar cvfz %(user)s.tar.gz -C %(users_dir)s %(user)s' % {
@@ -39,7 +41,7 @@ def create_users():
             })
             put('%s.tar.gz' % user, '/tmp/')
             local('rm %s.tar.gz' % user)
-            run('tar zxf /tmp/%(user)s.tar.gz -C /home;'
+            sudo('tar zxf /tmp/%(user)s.tar.gz -C /home;'
                 'rm /tmp/%(user)s.tar.gz;'
                 'chown -R %(user)s:sudo /home/%(user)s;'
                 'chmod -R 700 /home/%(user)s/.ssh;'
