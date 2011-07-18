@@ -7,15 +7,10 @@ from fabric.context_managers import cd
 env.deploy_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'deploy')
 env.config_dir = os.path.join(env.deploy_dir, 'config')
 
-def check_dirs():
-    sys.stdout.write('deploy_dir: %s\n' % env.get('deploy_dir', 'Not set'))
-    sys.stdout.write('config_dir: %s\n' % env.get('config_dir', 'Not set'))
-    sys.stdout.write('users_dir: %s\n' % env.get('users_dir', 'Not set'))
-    sys.stdout.write('site_config_dir: %s\n' % env.get('site_config_dir', 'Not set'))
-    sys.stdout.write('respoitory: %s\n' % env.get('repository', 'Not set'))
-
-def check_terminal():
-    run('echo $TERM', pty=True)
+@runs_once
+def generate_keys():
+    sudo('chmod 700 /root/.ssh;'
+         'ssh-keygen -q -t rsa -P "" -f /root/.ssh/id_rsa')
 
 def create_users(user=None):
     '''
@@ -211,6 +206,15 @@ def configure_nginx():
 def reload_webserver():
     sudo('service nginx reload')
 
+def install_LESS():
+    sudo("apt-get install -y python-software-properties curl;"
+         "add-apt-repository ppa:jerome-etienne/neoip;"
+         "sudo apt-get update;"
+         "sudo apt-get install -y nodejs;"
+         "export skipclean=1;"
+         "curl http://npmjs.org/install.sh | sudo -E sh;"
+         "sudo npm install less -g;")
+
 def reload_app():
     require('domain')
     sudo('touch %(path)s/%(domain)s/site/uwsgi.ini' % env)
@@ -332,3 +336,40 @@ def new_server():
     configure_db()
     create_db()
     configure_nginx()
+
+
+def maintenance(state=None, branch="master"):
+    ''' Enables or disables a maintenance page for the site. '''
+    env.branch = branch
+    if state == 'on':
+        if exists('/etc/nginx/sites-enabled/maintenance', use_sudo=True):
+            with settings(abort_on_prompts=False):
+                proceed = prompt('It appears that maintenance mode is already on. Continue? [y/N]: ', default='n', validate=yesno)
+                if not proceed:
+                    abort('Canceled by user input.')
+        with lcd('../itlabs/static'):
+            local('git archive --format=tar %(branch)s | gzip > static.tar.gz' % env)
+            put('static.tar.gz', '/tmp/maintenance.tar.gz')
+            local('rm static.tar.gz')
+            sudo('rm -rf %(path)s/maintenance;'
+                 'mkdir %(path)s/maintenance;'
+                 'tar zxf /tmp/maintenance.tar.gz -C %(path)s/maintenance;'
+                 'chown -R %(user)s:%(group)s %(path)s/maintenance;'
+                 'chmod -R 750 %(path)s/maintenance;'
+                 'rm /tmp/maintenance.tar.gz;' % env)
+        put('configs/nginx/maintenance', '/etc/nginx/sites-available/maintenance', use_sudo=True)
+        if not exists('/etc/nginx/sites-enabled.old', use_sudo=True):
+            sudo('mkdir /etc/nginx/sites-enabled.old')
+        sudo('mv -f /etc/nginx/sites-enabled/* /etc/nginx/sites-enabled.old/;'
+             'ln -sf /etc/nginx/sites-available/maintenance /etc/nginx/sites-enabled/maintenance;')
+    elif state == 'off':
+        if not exists('/etc/nginx/sites-enabled/maintenance', use_sudo=True):
+            with settings(abort_on_prompts=False):
+                proceed = prompt('It appears that maintenance mode is already off. Continue? [y/N]: ', default='n', validate=yesno)
+                if not proceed:
+                    abort('Canceled by user input.')
+        sudo('mv -f /etc/nginx/sites-enabled.old/* /etc/nginx/sites-enabled/;'
+             'rm -f /etc/nginx/sites-enabled/maintenance;')
+    else:
+        abort('Please specify either "on" or "off".')
+    sudo('service nginx reload')

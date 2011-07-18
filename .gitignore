@@ -1,9 +1,5 @@
 *.db
-project/static
-project/media
-project/_*
-mail_receiver
-keys/
+docs/_build
 
 #Mac OS X
 .DS_Store
