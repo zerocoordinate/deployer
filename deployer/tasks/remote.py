@@ -226,9 +226,14 @@ def install_site_files():
     put('%(repository)s%(domain)s.tar.gz' % env, '/tmp/%(domain)s.tar.gz' % env)
     local('rm %(repository)s%(domain)s.tar.gz'  % env)
     sudo('rm -rf %(path)s/%(domain)s/site/*;'
-        'tar zxf /tmp/%(domain)s.tar.gz -C %(path)s/%(domain)s/site/;'
-        'rm /tmp/%(domain)s.tar.gz;' % env)
+         'tar zxf /tmp/%(domain)s.tar.gz -C %(path)s/%(domain)s/site/;'
+         'rm /tmp/%(domain)s.tar.gz;' % env)
     create_dirs() # Sets correct permissions
+
+def install_requirements():
+    with cd('%(path)s/%(domain)s' % env):
+        sudo('source bin/activate;'
+             'pip install -E . -r site/requirements.txt' % env)
 
 def install_site_conf():
     require('domain', 'site_config_dir')
@@ -252,77 +257,82 @@ def deploy():
     create_dirs()
     install_site_files()
     with cd('%(path)s/%(domain)s' % env):
-        sudo('virtualenv site' % env)
+        sudo('virtualenv .')
         with cd('site'):
-            sudo('source bin/activate; pip install -r requirements.txt' % env)
             sudo('chown -R root:www-data .')
+    install_requirements()
     install_site_conf()
     compress()
     collectstatic()
 
-def update():
+def update(reqs='yes'):
     require('domain', 'repository')
     install_site_files()
-    with cd('%(path)s/%(domain)s' % env):
-        sudo('virtualenv site' % env)
-        with cd('site'):
-            sudo('source bin/activate; pip install -r requirements.txt' % env)
-            sudo('chown -R root:www-data .')
+    sudo('chown -R root:www-data %(path)s/%(domain)s/site' % env)
+    if yesno(reqs):
+        install_requirements()
     install_site_conf()
     compress()
     collectstatic()
 
 def destroy():
+    ''' Removes ALL site files from the remote server. DANGER. '''
     require('domain')
+    with settings(abort_on_prompts=False):
+        proceed = prompt('**Warning** This will delete all site files on disk including uploaded media. Continue? [y/N]: ', default='n', validate=yesno)
+        if not proceed:
+            abort('Canceled by user input.')
     sudo('rm -rf %(path)s/%(domain)s' % env)
 
 def compile():
+    ''' Pre-compile all Python files and set approriate permissions (Experimental) '''
     sudo('python -m compileall -q -f %(path)s/%(domain)s/site' % env)
     sudo('find %(path)s/%(domain)s/site -type f -name "*.pyc" -exec chmod 555 {} \;' % env)
 
 def syncdb():
     require('domain', 'app_name')
-    with cd('%(path)s/%(domain)s/site' % env):
-        sudo('source bin/activate; %(app_name)s/manage.py syncdb --noinput' % env)
+    with cd('%(path)s/%(domain)s' % env):
+        sudo('source bin/activate; site/%(app_name)s/manage.py syncdb --noinput' % env)
 
 def migrate():
     require('domain', 'app_name')
-    with cd('%(path)s/%(domain)s/site' % env):
-        sudo('source bin/activate; %(app_name)s/manage.py migrate' % env)
+    with cd('%(path)s/%(domain)s' % env):
+        sudo('source bin/activate; site/%(app_name)s/manage.py migrate' % env)
 
 def compress():
     if env.get('compress', False):
         require('domain', 'app_name')
-        with cd('%(path)s/%(domain)s/site' % env):
-            sudo('source bin/activate; %(app_name)s/manage.py compress' % env)
+        with cd('%(path)s/%(domain)s' % env):
+            sudo('source bin/activate; site/%(app_name)s/manage.py compress' % env)
 
 def collectstatic():
     require('domain', 'app_name')
-    with cd('%(path)s/%(domain)s/site' % env):
+    with cd('%(path)s/%(domain)s' % env):
         sudo('source bin/activate;'
-            '%(app_name)s/manage.py collectstatic --noinput;'
+            'site/%(app_name)s/manage.py collectstatic --noinput;'
             'chmod -R 750 %(path)s/%(domain)s/static;'
             'chown -R root:www-data %(path)s/%(domain)s/static;' % env)
 
 def loaddata(file):
     require('domain', 'app_name')
     put(file, '/tmp/loaddata.json')
-    with cd('%(path)s/%(domain)s/site' % env):
-        sudo('source bin/activate; %(app_name)s/manage.py loaddata /tmp/loaddata.json' % env)
+    with cd('%(path)s/%(domain)s' % env):
+        sudo('source bin/activate; site/%(app_name)s/manage.py loaddata /tmp/loaddata.json' % env)
     sudo('rm /tmp/loaddata.json')
 
 def rebuild_index():
     require('domain', 'app_name')
-    with cd('%(path)s/%(domain)s/site' % env):
-        sudo('source bin/activate; %(app_name)s/manage.py rebuild_index --noinput' % env)
-        sudo('chown -R root:www-data %(app_name)s; chmod -R 750 %(app_name)s' % env)
-        if exists('./%(app_name)s/_whoosh/' % env, use_sudo=True):
-            sudo('chmod -R 770 ./%(app_name)s/_whoosh/' % env)
+    with cd('%(path)s/%(domain)s' % env):
+        sudo('source bin/activate; site/%(app_name)s/manage.py rebuild_index --noinput' % env)
+        sudo('chown -R root:www-data site/%(app_name)s;'
+             'chmod -R 750 site/%(app_name)s' % env)
+        if exists('site/%(app_name)s/_whoosh/' % env, use_sudo=True):
+            sudo('chmod -R 770 site/%(app_name)s/_whoosh/' % env)
 
 def update_index():
     require('domain', 'app_name')
-    with cd('%(path)s/%(domain)s/site' % env):
-        sudo('source bin/activate; %(app_name)s/manage.py update_index' % env)
+    with cd('%(path)s/%(domain)s' % env):
+        sudo('source bin/activate; site/%(app_name)s/manage.py update_index' % env)
 
 
 def new_server():
