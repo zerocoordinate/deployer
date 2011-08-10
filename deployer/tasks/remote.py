@@ -4,7 +4,8 @@ from fabric.api import *
 from fabric.contrib.files import exists
 from fabric.context_managers import cd
 
-env.deploy_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'deploy')
+#hacky
+env.deploy_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'deploy')
 env.config_dir = os.path.join(env.deploy_dir, 'config')
 
 @runs_once
@@ -154,10 +155,24 @@ def configure_db():
     sudo('mv /tmp/pg_hba.conf /etc/postgresql/8.4/main/pg_hba.conf;'
         'chown postgres:postgres /etc/postgresql/8.4/main/pg_hba.conf')
     sudo('/etc/init.d/postgresql start')
+    
+def create_spatialdb_template():
+    put(os.path.join(env.deploy_dir, 'create_template_postgis-debian.sh'), 
+        '/tmp/', mirror_local_mode=True)
+    try:
+        sudo('/tmp/create_template_postgis-debian.sh', user='postgres')
+    except:
+        pass
+    finally:
+        run('rm -f /tmp/create_template_postgis-debian.sh')
 
 def create_db():
     require('db_name')
-    sudo('createdb %(db_name)s' % env, user="postgres")
+    if 'db_template' in env:
+        env.db_template_string = '-T %(db_template)s' % env
+    else:
+        env.db_template_string = '-T template_postgis'
+    sudo('createdb %(db_template_string)s %(db_name)s' % env, user="postgres")
 
 def remove_db():
     require('db_name')
@@ -344,6 +359,7 @@ def new_server():
     configure_motd()
     install_system_packages()
     configure_db()
+    create_spatialdb_template()
     create_db()
     configure_nginx()
 

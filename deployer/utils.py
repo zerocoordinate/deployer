@@ -16,4 +16,7 @@ def set_permissions(path, perms='775', user=None, group=None):
         require('group')
         group = env.group
     sudo('chown -R %(user)s:%(group)s %(path)s;'
-         'chmod -Rf %(perms)s %(path)s' % {'user': user, 'group': group, 'perms': perms, 'path': path})
+         'chmod -Rf %(perms)s %(path)s' % {'user': user, 
+                                           'group': group, 
+                                           'perms': perms, 
+                                           'path': path})
