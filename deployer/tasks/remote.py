@@ -28,7 +28,10 @@ def create_users(user=None):
     for user in env.users:
         # Only create a user if we have a valid authorized_keys file for them.
         if os.path.exists(os.path.join(env.users_dir, user, '.ssh', 'authorized_keys')):
-            sudo('useradd -m %(user)s -g sudo -s /bin/bash;'
+            if exists('/home/%s' % user):
+                sys.stdout.write('Remote user "%s" already exists. Proceeding to next user.\n' % user)
+                continue
+            sudo('useradd -m %(user)s -g sudo,admin -s /bin/bash;'
                 'echo "%(user)s:%(password)s" | sudo chpasswd;'
                 'passwd -e %(user)s' % {'user':user, 'password':env.default_password}, pty=True)
             local('tar cvfz %(user)s.tar.gz -C %(users_dir)s %(user)s' % {
@@ -146,23 +149,29 @@ def create_dirs():
             sudo('chmod 750 .')
 
 def configure_db():
-    ''' Configure postgresql with standard config files.'''
-    sudo('/etc/init.d/postgresql stop')
-    put(os.path.join(env.config_dir, 'postgresql', 'postgresql.conf'), '/tmp/postgresql.conf')
-    put(os.path.join(env.config_dir, 'postgresql', 'pg_hba.conf'), '/tmp/pg_hba.conf')
-    sudo('mv /tmp/postgresql.conf /etc/postgresql/8.4/main/postgresql.conf;'
-        'chown postgres:postgres /etc/postgresql/8.4/main/postgresql.conf')
-    sudo('mv /tmp/pg_hba.conf /etc/postgresql/8.4/main/pg_hba.conf;'
-        'chown postgres:postgres /etc/postgresql/8.4/main/pg_hba.conf')
-    sudo('/etc/init.d/postgresql start')
-    
+    ''' Configure database with standard config files. Currently supports PostgreSQL with optional PostGIS support.'''
+    require('databases')
+    databases = list(env.databases) # Ensure proper handling for list or string
+    if 'postgresql' in databases:
+        sudo('/etc/init.d/postgresql stop')
+        put(os.path.join(env.config_dir, 'postgresql', 'postgresql.conf'), '/tmp/postgresql.conf')
+        put(os.path.join(env.config_dir, 'postgresql', 'pg_hba.conf'), '/tmp/pg_hba.conf')
+        sudo('mv /tmp/postgresql.conf /etc/postgresql/8.4/main/postgresql.conf;'
+            'chown postgres:postgres /etc/postgresql/8.4/main/postgresql.conf')
+        sudo('mv /tmp/pg_hba.conf /etc/postgresql/8.4/main/pg_hba.conf;'
+            'chown postgres:postgres /etc/postgresql/8.4/main/pg_hba.conf')
+        sudo('/etc/init.d/postgresql start')
+    if 'postgis' in databases:
+        create_spatialdb_template()
+        create_db()
+
 def create_spatialdb_template():
-    put(os.path.join(env.deploy_dir, 'create_template_postgis-debian.sh'), 
+    put(os.path.join(env.deploy_dir, 'create_template_postgis-debian.sh'),
         '/tmp/', mirror_local_mode=True)
     try:
         sudo('/tmp/create_template_postgis-debian.sh', user='postgres')
     except:
-        pass
+        pass #FIXME -- Don't catch everything and do nothing! At least abort with a useful error.
     finally:
         run('rm -f /tmp/create_template_postgis-debian.sh')
 
@@ -277,8 +286,8 @@ def deploy():
             sudo('chown -R root:www-data .')
     install_requirements()
     install_site_conf()
-    compress()
     collectstatic()
+    compress()
 
 def update(reqs='yes'):
     require('domain', 'repository')
@@ -351,6 +360,7 @@ def update_index():
 
 
 def new_server():
+    require('databases')
     create_users()
     configure_ssh()
     configure_firewall()
@@ -359,8 +369,6 @@ def new_server():
     configure_motd()
     install_system_packages()
     configure_db()
-    create_spatialdb_template()
-    create_db()
     configure_nginx()
 
 
