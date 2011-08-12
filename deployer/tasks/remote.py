@@ -12,6 +12,7 @@ env.config_dir = os.path.join(env.deploy_dir, 'config')
 
 @runs_once
 def generate_keys():
+    ''' Create ssh keys for the root user on the server. '''
     sudo('chmod 700 /root/.ssh;'
          'ssh-keygen -q -t rsa -P "" -f /root/.ssh/id_rsa')
 
@@ -168,6 +169,7 @@ def configure_db():
         create_db()
 
 def create_spatialdb_template():
+    ''' Runs the PostGIS spatial DB template script. '''
     put(os.path.join(env.deploy_dir, 'create_template_postgis-debian.sh'),
         '/tmp/', mirror_local_mode=True)
     try:
@@ -178,6 +180,7 @@ def create_spatialdb_template():
         run('rm -f /tmp/create_template_postgis-debian.sh')
 
 def create_db():
+    ''' Creates a PostgreSQL database from the given template. '''
     require('db_name')
     if 'db_template' in env:
         env.db_template_string = '-T %(db_template)s' % env
