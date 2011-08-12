@@ -27,6 +27,28 @@ How to use it
 There are four main components to using the Deployer: the environment,
 the pre-built tasks, your server configuration files, and your user directories.
 
+A minimal fabfile using The Deployer might look like the following::
+
+    from fabric.api import *
+    from deployer import *
+
+    env.path = '/srv'
+    env.hosts = [
+        'example.com',
+    ]
+    env.domain = 'example.com'
+    env.users = ('john_doe',)
+    env.default_password = 'chang3m3'
+    env.group = 'www-data'
+    env.app_name = 'project'
+    env.repository = '/srv/example.com/site/'
+    env.db_name = 'example'
+    env.users_dir = '/srv/example.com/deploy/users'
+    env.databases = ['postgresql']
+    env.settings_module = 'settings.production'
+    env.site_config_dir = '/srv/example.com/deploy/config'
+
+
 See the sections below for specific information:
 
 .. toctree::

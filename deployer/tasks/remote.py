@@ -4,6 +4,8 @@ from fabric.api import *
 from fabric.contrib.files import exists
 from fabric.context_managers import cd
 
+from ..utils import yesno
+
 #hacky
 env.deploy_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'deploy')
 env.config_dir = os.path.join(env.deploy_dir, 'config')
@@ -31,7 +33,7 @@ def create_users(user=None):
             if exists('/home/%s' % user):
                 sys.stdout.write('Remote user "%s" already exists. Proceeding to next user.\n' % user)
                 continue
-            sudo('useradd -m %(user)s -g sudo,admin -s /bin/bash;'
+            sudo('useradd -m %(user)s -g sudo -G admin -s /bin/bash;'
                 'echo "%(user)s:%(password)s" | sudo chpasswd;'
                 'passwd -e %(user)s' % {'user':user, 'password':env.default_password}, pty=True)
             local('tar cvfz %(user)s.tar.gz -C %(users_dir)s %(user)s' % {
@@ -218,8 +220,6 @@ def configure_nginx():
         'chmod -R 770 /etc/nginx/emperor;')
     put(os.path.join(env.config_dir, 'nginx', 'uwsgi.conf'), '/tmp/uwsgi.conf')
     sudo('mv /tmp/uwsgi.conf /etc/init/uwsgi.conf; chown root:root /etc/nginx/nginx.conf; chmod 644 /etc/init/uwsgi.conf')
-    put(os.path.join(env.config_dir, 'nginx', 'nginx.base.conf'), '/tmp/nginx.base.conf')
-    sudo('mv /tmp/nginx.base.conf /etc/nginx/nginx.base.conf; chmod 644 /etc/nginx/nginx.base.conf')
     put(os.path.join(env.config_dir, 'nginx', 'nginx.conf'), '/tmp/nginx.conf')
     sudo('mv /tmp/nginx.conf /etc/nginx/nginx.conf;'
         'chmod 644 /etc/nginx/nginx.conf;'
@@ -296,8 +296,8 @@ def update(reqs='yes'):
     if yesno(reqs):
         install_requirements()
     install_site_conf()
-    compress()
     collectstatic()
+    compress()
 
 def destroy():
     ''' Removes ALL site files from the remote server. DANGER. '''
@@ -316,24 +316,24 @@ def compile():
 def syncdb():
     require('domain', 'app_name')
     with cd('%(path)s/%(domain)s' % env):
-        sudo('source bin/activate; site/%(app_name)s/manage.py syncdb --noinput' % env)
+        sudo('source bin/activate; bin/django-admin.py syncdb --noinput --pythonpath=site/%(app_name)s --settings=%(settings_module)s' % env)
 
 def migrate():
     require('domain', 'app_name')
     with cd('%(path)s/%(domain)s' % env):
-        sudo('source bin/activate; site/%(app_name)s/manage.py migrate' % env)
+        sudo('source bin/activate; bin/django-admin.py migrate --pythonpath=site/%(app_name)s --settings=%(settings_module)s' % env)
 
 def compress():
     if env.get('compress', False):
         require('domain', 'app_name')
         with cd('%(path)s/%(domain)s' % env):
-            sudo('source bin/activate; site/%(app_name)s/manage.py compress' % env)
+            sudo('source bin/activate; cd site/%(app_name)s; %(path)s/%(domain)s/bin/django-admin.py compress --pythonpath=`pwd` --settings=%(settings_module)s' % env)
 
 def collectstatic():
     require('domain', 'app_name')
     with cd('%(path)s/%(domain)s' % env):
         sudo('source bin/activate;'
-            'site/%(app_name)s/manage.py collectstatic --noinput;'
+            'bin/django-admin.py collectstatic --noinput --pythonpath=site/%(app_name)s --settings=%(settings_module)s;'
             'chmod -R 750 %(path)s/%(domain)s/static;'
             'chown -R root:www-data %(path)s/%(domain)s/static;' % env)
 
@@ -341,13 +341,13 @@ def loaddata(file):
     require('domain', 'app_name')
     put(file, '/tmp/loaddata.json')
     with cd('%(path)s/%(domain)s' % env):
-        sudo('source bin/activate; site/%(app_name)s/manage.py loaddata /tmp/loaddata.json' % env)
+        sudo('source bin/activate; bin/django-admin.py loaddata /tmp/loaddata.json --pythonpath=site/%(app_name)s --settings=%(settings_module)s' % env)
     sudo('rm /tmp/loaddata.json')
 
 def rebuild_index():
     require('domain', 'app_name')
     with cd('%(path)s/%(domain)s' % env):
-        sudo('source bin/activate; site/%(app_name)s/manage.py rebuild_index --noinput' % env)
+        sudo('source bin/activate; bin/django-admin.py rebuild_index --noinput --pythonpath=site/%(app_name)s --settings=%(settings_module)s' % env)
         sudo('chown -R root:www-data site/%(app_name)s;'
              'chmod -R 750 site/%(app_name)s' % env)
         if exists('site/%(app_name)s/_whoosh/' % env, use_sudo=True):
@@ -356,7 +356,7 @@ def rebuild_index():
 def update_index():
     require('domain', 'app_name')
     with cd('%(path)s/%(domain)s' % env):
-        sudo('source bin/activate; site/%(app_name)s/manage.py update_index' % env)
+        sudo('source bin/activate; bin/django-admin.py update_index --pythonpath=site/%(app_name)s --settings=%(settings_module)s' % env)
 
 
 def new_server():
@@ -368,6 +368,7 @@ def new_server():
     configure_unattended_upgrades()
     configure_motd()
     install_system_packages()
+    install_LESS()
     configure_db()
     configure_nginx()
 
