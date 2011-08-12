@@ -113,19 +113,15 @@ def install_system_packages():
         'python-dev',
         'python-psycopg2',
         'memcached',
-        'nginx',
-        'postgresql',
     ))
     if env.get('extra_packages', []):
         packages = packages.union(set(env.extra_packages))
     sudo('apt-get install -y python-software-properties', pty=True) # Required for add-apt-repository
-    sudo('add-apt-repository ppa:nginx/stable;') # Add nginx's PPA
     sudo('apt-get update -y', pty=True)
     sudo('apt-get upgrade -y', pty=True)
     sudo('apt-get install -y %s' % " ".join(packages), pty=True)
     sudo('easy_install pip')
     sudo('pip install virtualenv')
-    sudo('pip install uwsgi')
 
 def create_dirs():
     ''' Creates standard set of directories (media, static, sites). '''
@@ -151,22 +147,16 @@ def create_dirs():
             sudo('chmod -R 750 ./site')
             sudo('chmod 750 .')
 
-def configure_db():
+def configure_databases():
     ''' Configure database with standard config files. Currently supports PostgreSQL with optional PostGIS support.'''
     require('databases')
     databases = list(env.databases) # Ensure proper handling for list or string
     if 'postgresql' in databases:
-        sudo('/etc/init.d/postgresql stop')
-        put(os.path.join(env.config_dir, 'postgresql', 'postgresql.conf'), '/tmp/postgresql.conf')
-        put(os.path.join(env.config_dir, 'postgresql', 'pg_hba.conf'), '/tmp/pg_hba.conf')
-        sudo('mv /tmp/postgresql.conf /etc/postgresql/8.4/main/postgresql.conf;'
-            'chown postgres:postgres /etc/postgresql/8.4/main/postgresql.conf')
-        sudo('mv /tmp/pg_hba.conf /etc/postgresql/8.4/main/pg_hba.conf;'
-            'chown postgres:postgres /etc/postgresql/8.4/main/pg_hba.conf')
-        sudo('/etc/init.d/postgresql start')
+        from .databases.postgresql import configure_db
+        configure_db()
     if 'postgis' in databases:
-        create_spatialdb_template()
-        create_db()
+        from .databases.postgis import configure_db
+        configure_db()
 
 def create_spatialdb_template():
     ''' Runs the PostGIS spatial DB template script. '''
@@ -209,26 +199,9 @@ def backup_db():
     get('/tmp/db_%s.sql.gz' % timestamp, os.path.join(env['backup_dir'], 'db_%s.sql.gz' % timestamp))
     sudo('rm /tmp/db_%s.sql.gz' % timestamp)
 
-def configure_nginx():
+def configure_webserver():
     ''' Upload nginx and uwsgi config files and reload nginx. '''
     require('config_dir')
-    if exists('/etc/nginx/sites-enabled/default', use_sudo=True):
-        sudo('rm /etc/nginx/sites-enabled/default')
-    sudo('mkdir /var/log/nginx/emperor;'
-        'chown -R www-data:adm /var/log/nginx;'
-        'chmod -R 640 /var/log/nginx;'
-        'mkdir /etc/nginx/emperor;'
-        'touch /etc/nginx/emperor/fastrouter_webserver.sock;'
-        'chown -R root:www-data /etc/nginx/emperor;'
-        'chmod -R 770 /etc/nginx/emperor;')
-    put(os.path.join(env.config_dir, 'nginx', 'uwsgi.conf'), '/tmp/uwsgi.conf')
-    sudo('mv /tmp/uwsgi.conf /etc/init/uwsgi.conf; chown root:root /etc/nginx/nginx.conf; chmod 644 /etc/init/uwsgi.conf')
-    put(os.path.join(env.config_dir, 'nginx', 'nginx.conf'), '/tmp/nginx.conf')
-    sudo('mv /tmp/nginx.conf /etc/nginx/nginx.conf;'
-        'chmod 644 /etc/nginx/nginx.conf;'
-        'service nginx start;'
-        'service nginx reload;'
-        'initctl start uwsgi;')
 
 def reload_webserver():
     sudo('service nginx reload')
