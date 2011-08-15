@@ -27,4 +27,8 @@ def restart_webserver():
     start_webserver()
 
 def install_site_conf():
-    pass
+    put(os.path.join(env.site_config_dir, 'gunicorn', 'gunicorn.conf'), '/tmp/gunicorn.conf')
+    sudo('mv /tmp/gunicorn.conf %(path)s/%(domain)s/site/gunicorn.conf;'
+        'chown -R root:www-data %(path)s/%(domain)s/site/gunicorn.conf;'
+        'chmod 750 %(path)s/%(domain)s/site/gunicorn.conf' % env)
+    restart_webserver()

@@ -41,7 +41,7 @@ def configure_nginx():
          'chmod 644 /etc/nginx/nginx.conf;'
          'chown root:root /etc/nginx/nginx.conf;'
          'service nginx start;')
-    reload_webserver()
+    restart_webserver()
 
 def restart_webserver():
     sudo('service nginx reload')
@@ -62,4 +62,4 @@ def install_site_conf():
     sudo('mv /tmp/nginx.conf %(path)s/%(domain)s/site/nginx.conf;'
         'chown -R root:www-data %(path)s/%(domain)s/site/nginx.conf;'
         'chmod 640 %(path)s/%(domain)s/site/nginx.conf' % env)
-    reload_webserver()
+    restart_webserver()
