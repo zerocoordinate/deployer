@@ -10,6 +10,12 @@ from ..utils import yesno, call_backend_task
 env.deploy_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'deploy')
 env.config_dir = os.path.join(env.deploy_dir, 'config')
 
+def site_exists():
+    if exists('%(path)s/%(domain)s' %env):
+        sys.stdout.write('INSTALLED: The site "%(domain)s" is installed on this server.' % env)
+    else:
+        sys.stdout.write('NOT INSTALLED: The site "%(domain)s" is not installed on this server.' % env)
+
 @runs_once
 def generate_keys():
     ''' Create ssh keys for the root user on the server. '''
@@ -215,7 +221,8 @@ def install_site_files():
 def install_requirements():
     with cd('%(path)s/%(domain)s' % env):
         sudo('source bin/activate;'
-             'pip install -E . -r site/requirements.txt' % env)
+             'pip install -E . -r site/requirements.txt;'
+             'chmod -R 755 lib src' % env)
 
 def install_site_conf():
     require('domain', 'site_config_dir')

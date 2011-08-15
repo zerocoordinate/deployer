@@ -3,7 +3,9 @@ from fabric.api import *
 from fabric.context_managers import cd
 
 def install_webserver():
-    pass
+    sudo('mkdir -p /var/log/gunicorn;'
+         'chmod -R 644 /var/log/gunicorn;'
+         'chown -R root:www-data /var/log/gunicorn;')
 
 def configure_webserver():
     require('config_dir')
@@ -20,7 +22,8 @@ def start_webserver():
     sudo('start gunicorn;')
 
 def stop_webserver():
-    sudo('stop gunicorn;')
+    with settings(warn_only=True):
+        sudo('stop gunicorn;')
 
 def restart_webserver():
     stop_webserver()
