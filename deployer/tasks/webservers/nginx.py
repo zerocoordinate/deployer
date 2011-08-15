@@ -40,12 +40,26 @@ def configure_nginx():
          'mv /tmp/nginx.conf /etc/nginx/nginx.conf;'
          'chmod 644 /etc/nginx/nginx.conf;'
          'chown root:root /etc/nginx/nginx.conf;'
-         'service nginx start;'
-         'service nginx reload;')
+         'service nginx start;')
+    reload_webserver()
 
-def reload_webserver():
+def restart_webserver():
     sudo('service nginx reload')
 
 def configure_webserver():
     #configure_uwsgi()
     configure_nginx()
+
+def install_uwsgi_conf():
+    put(os.path.join(env.site_config_dir, 'nginx', 'uwsgi.ini'), '/tmp/uwsgi.ini')
+    sudo('mv /tmp/uwsgi.ini %(path)s/%(domain)s/site/uwsgi.ini;'
+        'chown -R root:www-data %(path)s/%(domain)s/site/uwsgi.ini;'
+        'chmod 640 %(path)s/%(domain)s/site/uwsgi.ini;' % env)
+
+def install_site_conf():
+    #install_uwsgi_conf()
+    put(os.path.join(env.site_config_dir, 'nginx', 'nginx.conf'), '/tmp/nginx.conf')
+    sudo('mv /tmp/nginx.conf %(path)s/%(domain)s/site/nginx.conf;'
+        'chown -R root:www-data %(path)s/%(domain)s/site/nginx.conf;'
+        'chmod 640 %(path)s/%(domain)s/site/nginx.conf' % env)
+    reload_webserver()

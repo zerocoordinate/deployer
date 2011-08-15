@@ -3,24 +3,28 @@ from fabric.api import *
 from fabric.context_managers import cd
 
 def install_webserver():
-    with cd('%(path)s/%(domain)s' % env):
-        sudo('source bin/activate;'
-             'pip install -E . gunicorn')
+    pass
 
 def configure_webserver():
     require('config_dir')
     put(os.path.join(env.config_dir, 'upstart', 'gunicorn.conf'), '/tmp/gunicorn.conf')
     put(os.path.join(env.config_dir, 'upstart', 'gsite.conf'), '/tmp/gsite.conf')
-    sudo('mv /tmp/gunicorn.conf /etc/init.d/gunicorn.conf;'
-         'mv /tmp/gsite.conf /etc/init.d/gsite.conf;'
-         'chmod 755 /etc/init.d/gunicorn.conf;'
-         'chown root:root /etc/init.d/gunicorn.conf;'
-         'chmod 755 /etc/init.d/gsite.conf;'
-         'chown root:root /etc/init.d/gsite.conf;')
-    start_webserver()
+    sudo('mv /tmp/gunicorn.conf /etc/init/gunicorn.conf;'
+         'mv /tmp/gsite.conf /etc/init/gsite.conf;'
+         'chmod 755 /etc/init/gunicorn.conf;'
+         'chown root:root /etc/init/gunicorn.conf;'
+         'chmod 755 /etc/init/gsite.conf;'
+         'chown root:root /etc/init/gsite.conf;')
 
 def start_webserver():
     sudo('start gunicorn;')
 
 def stop_webserver():
     sudo('stop gunicorn;')
+
+def restart_webserver():
+    stop_webserver()
+    start_webserver()
+
+def install_site_conf():
+    pass

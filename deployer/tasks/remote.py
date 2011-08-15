@@ -4,7 +4,7 @@ from fabric.api import *
 from fabric.contrib.files import exists
 from fabric.context_managers import cd
 
-from ..utils import yesno
+from ..utils import yesno, call_backend_task
 
 #hacky
 env.deploy_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'deploy')
@@ -122,6 +122,22 @@ def install_system_packages():
     sudo('apt-get install -y %s' % " ".join(packages), pty=True)
     sudo('easy_install pip')
     sudo('pip install virtualenv')
+    install_LESS()
+
+def install_LESS():
+    sudo("apt-get install -y python-software-properties curl;"
+         "add-apt-repository ppa:jerome-etienne/neoip;"
+         "sudo apt-get update;"
+         "sudo apt-get install -y nodejs;"
+         "export skipclean=1;"
+         "curl http://npmjs.org/install.sh | sudo -E sh;"
+         "sudo npm install less -g;")
+
+def install_databases():
+    call_backend_task('databases', 'install_db')
+
+def install_webservers():
+    call_backend_task('webservers', 'install_webserver')
 
 def create_dirs():
     ''' Creates standard set of directories (media, static, sites). '''
@@ -150,70 +166,36 @@ def create_dirs():
 def configure_databases():
     ''' Configure database with standard config files. Currently supports PostgreSQL with optional PostGIS support.'''
     require('databases')
-    databases = list(env.databases) # Ensure proper handling for list or string
-    if 'postgresql' in databases:
-        from .databases.postgresql import configure_db
-        configure_db()
-    if 'postgis' in databases:
-        from .databases.postgis import configure_db
-        configure_db()
+    call_backend_task('databases', 'configure_db')
 
-def create_spatialdb_template():
-    ''' Runs the PostGIS spatial DB template script. '''
-    put(os.path.join(env.deploy_dir, 'create_template_postgis-debian.sh'),
-        '/tmp/', mirror_local_mode=True)
-    try:
-        sudo('/tmp/create_template_postgis-debian.sh', user='postgres')
-    except:
-        pass #FIXME -- Don't catch everything and do nothing! At least abort with a useful error.
-    finally:
-        run('rm -f /tmp/create_template_postgis-debian.sh')
-
-def create_db():
-    ''' Creates a PostgreSQL database from the given template. '''
-    require('db_name')
-    if 'db_template' in env:
-        env.db_template_string = '-T %(db_template)s' % env
-    else:
-        env.db_template_string = '-T template_postgis'
-    sudo('createdb %(db_template_string)s %(db_name)s' % env, user="postgres")
+def create_db(db_user, db_name):
+    ''' Creates a database with the given name and owner. '''
+    call_backend_task('databases', 'create_db', db_user, db_name)
 
 def remove_db():
+    ''' Drops a database. '''
     require('db_name')
-    sudo('dropdb %(db_name)s' % env, user="postgres")
+    call_backend_task('databases', 'remove_db')
 
 def remove_db_user(db_user):
-    sudo('psql -c "DROP ROLE %s;"' % db_user, user="postgres")
+    ''' Deletes a database user. '''
+    call_backend_task('databases', 'remove_db_user', db_user)
 
 def create_db_user(db_user, db_pass):
-    sudo('psql -c "CREATE USER %s WITH ENCRYPTED PASSWORD \'%s\'"' % (db_user, db_pass), user="postgres")
-    sudo('psql -c "CREATE DATABASE %s WITH OWNER %s"' % (db_user, db_user), user='postgres')
+    ''' Create a database user with the given username and password. '''
+    call_backend_task('databases', 'create_db_user', db_user, db_pass)
 
 def backup_db():
-    ''' Take a database backup with pg_dumpall and download it. '''
-    require('backup_dir')
-    timestamp = time.strftime('%Y-%m-%d_%H-%M-%S')
-    sudo('pg_dumpall -l valhalla | gzip > /tmp/db_%s.sql.gz' % timestamp, user="postgres")
-    if not os.path.exists(env['backup_dir']):
-        os.mkdir(env['backup_dir'])
-    get('/tmp/db_%s.sql.gz' % timestamp, os.path.join(env['backup_dir'], 'db_%s.sql.gz' % timestamp))
-    sudo('rm /tmp/db_%s.sql.gz' % timestamp)
+    ''' Take a database backup and download it. '''
+    call_backend_task('databases', 'backup_db')
 
-def configure_webserver():
-    ''' Upload nginx and uwsgi config files and reload nginx. '''
+def configure_webservers():
+    ''' Upload necessary files for webserver configuration. '''
     require('config_dir')
+    call_backend_task('webservers', 'configure_webserver')
 
-def reload_webserver():
-    sudo('service nginx reload')
-
-def install_LESS():
-    sudo("apt-get install -y python-software-properties curl;"
-         "add-apt-repository ppa:jerome-etienne/neoip;"
-         "sudo apt-get update;"
-         "sudo apt-get install -y nodejs;"
-         "export skipclean=1;"
-         "curl http://npmjs.org/install.sh | sudo -E sh;"
-         "sudo npm install less -g;")
+def restart_webservers():
+    call_backend_task('webservers', 'restart_webserver')
 
 def reload_app():
     require('domain')
@@ -237,15 +219,7 @@ def install_requirements():
 
 def install_site_conf():
     require('domain', 'site_config_dir')
-    put(os.path.join(env.site_config_dir, 'nginx', 'uwsgi.ini'), '/tmp/uwsgi.ini')
-    sudo('mv /tmp/uwsgi.ini %(path)s/%(domain)s/site/uwsgi.ini;'
-        'chown -R root:www-data %(path)s/%(domain)s/site/uwsgi.ini;'
-        'chmod 640 %(path)s/%(domain)s/site/uwsgi.ini;' % env)
-    put(os.path.join(env.site_config_dir, 'nginx', 'nginx.conf'), '/tmp/nginx.conf')
-    sudo('mv /tmp/nginx.conf %(path)s/%(domain)s/site/nginx.conf;'
-        'chown -R root:www-data %(path)s/%(domain)s/site/nginx.conf;'
-        'chmod 640 %(path)s/%(domain)s/site/nginx.conf' % env)
-    sudo('service nginx reload')
+    call_backend_task('webservers', 'install_site_conf')
 
 def deploy():
     ''' Creates a clean install of a site. Does not destroy user data. '''
@@ -264,6 +238,7 @@ def deploy():
     install_site_conf()
     collectstatic()
     compress()
+    restart_webservers()
 
 def update(reqs='yes'):
     require('domain', 'repository')
@@ -344,9 +319,10 @@ def new_server():
     configure_unattended_upgrades()
     configure_motd()
     install_system_packages()
-    install_LESS()
-    configure_db()
-    configure_nginx()
+    install_databases()
+    install_webservers()
+    configure_databases()
+    configure_webservers()
 
 
 def maintenance(state=None, branch="master"):
