@@ -27,12 +27,21 @@ def set_permissions(path, perms='775', user=None, group=None):
                                            'path': path})
 
 def load_backend(mod_name, backend_dir):
+    if not _backends.has_key(backend_dir):
+        search_path = os.path.join(DEPLOYER_PATH, "tasks")
+        f, path, description = imp.find_module(backend_dir, [search_path,])
+        try:
+            backend = imp.load_module(backend_dir, f, path, description)
+            _backends[backend_dir] = backend
+        except ImportError:
+            abort('Error: could not load backend package "%s".' % backend_dir)
+
     backend_key = '.'.join((mod_name, backend_dir,))
     if not _backends.has_key(backend_key):
         search_path = os.path.join(DEPLOYER_PATH, "tasks", backend_dir)
         f, path, description = imp.find_module(mod_name, [search_path,])
         try:
-            backend = imp.load_module(mod_name, f, path, description)
+            backend = imp.load_module('.'.join((backend_dir, mod_name)), f, path, description)
             _backends[backend_key] = backend
         except ImportError:
             abort('Error: Could not load the backend "%s".' % backend_name)
