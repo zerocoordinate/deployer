@@ -222,7 +222,7 @@ def install_requirements():
     with cd('%(path)s/%(domain)s' % env):
         sudo('source bin/activate;'
              'pip install -E . -r site/requirements.txt;'
-             'chmod -R 755 lib src' % env)
+             'chmod -Rf 755 lib src' % env)
 
 def install_site_conf():
     require('domain', 'site_config_dir')
