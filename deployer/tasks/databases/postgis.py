@@ -33,11 +33,6 @@ def create_spatialdb_template():
     finally:
         run('rm -f /tmp/create_template_postgis-debian.sh')
 
-def create_db():
-    ''' Creates a PostgreSQL database from the given template. '''
-    require('db_name', 'db_template_string')
-    if 'db_template' in env:
-        env.db_template_string = '-T %(db_template)s' % env
-    else:
-        env.db_template_string = '-T template_postgis'
-    sudo('createdb %(db_template_string)s %(db_name)s' % env, user="postgres")
+def create_db(db_user, db_name):
+    ''' Creates a PostgreSQL database. '''
+    sudo('psql -c "CREATE DATABASE %s WITH OWNER %s TEMPLATE template_postgis"' % (db_name, db_user), user='postgres')
