@@ -20,7 +20,6 @@ def install_db():
 def configure_db():
     configure_postgresql()
     create_spatialdb_template()
-    create_db()
 
 def create_spatialdb_template():
     ''' Runs the PostGIS spatial DB template script. '''
