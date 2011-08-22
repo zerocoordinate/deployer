@@ -12,9 +12,9 @@ env.config_dir = os.path.join(env.deploy_dir, 'config')
 
 def site_exists():
     if exists('%(path)s/%(domain)s' %env):
-        sys.stdout.write('INSTALLED: The site "%(domain)s" is installed on this server.' % env)
+        sys.stdout.write('INSTALLED: The site "%(domain)s" is installed on this server.\n' % env)
     else:
-        sys.stdout.write('NOT INSTALLED: The site "%(domain)s" is not installed on this server.' % env)
+        sys.stdout.write('NOT INSTALLED: The site "%(domain)s" is not installed on this server.\n' % env)
 
 @runs_once
 def generate_keys():
@@ -151,23 +151,31 @@ def create_dirs():
     with cd('%(path)s' % env):
         if not exists('%(domain)s' % env, use_sudo=True):
             sudo('mkdir %(domain)s' % env)
-        sudo('chown -R root:www-data ./%(domain)s; chmod -R 700 ./%(domain)s' % env)
         with cd('%(domain)s' % env):
             if not exists('./media', use_sudo=True):
                 sudo('mkdir ./media;')
-            # Media should be read + write for www-data
-            sudo('chown -R root:www-data ./media; chmod -R 770 ./media')
             if not exists('./static', use_sudo=True):
                 sudo('mkdir ./static;')
-            # Static should be read only for www-data
-            sudo('chown -R root:www-data ./static; chmod -R 750 ./static')
             if not exists('./site', use_sudo=True):
                 sudo('mkdir ./site;')
-            # Site files generally are no-access, .pyc files will be compiled
-            # with permissions for www-data read + execute.
-            sudo('chown -R root:www-data ./site; chmod -R 750 ./site')
-            sudo('chmod -R 750 ./site')
-            sudo('chmod 750 .')
+    repair_permissions()
+
+def repair_permissions():
+    ''' Restores permissions for a site to their correct state. '''
+    sudo('cd %(path)s;'
+         # Restore proper ownership.
+         'chown -Rf root:www-data %(domain)s;'
+         # Start with a baseline of no permissions for anyone but root.
+         'chmod -R 700 %(domain)s;'
+         # Media should be read + write for www-data
+         'chmod -Rf 770 %(domain)s/media;'
+         # Static needs read + execute for www-data (not sure why it needs execute, but it does)
+         'chmod -Rf 750 %(domain)s/static;' #FIXME -- This isn't read-only
+         # Site dir (python and config files) should be read + execute
+         'chmod -Rf 750 %(domain)s/site;'
+         # Virtualenv dirs need to be executable
+         'chmod -Rf 750 %(domain)s/lib %(domain)s/src;'
+         'chmod 750 %(domain)s;' % env)
 
 def configure_databases():
     ''' Configure database with standard config files. Currently supports PostgreSQL with optional PostGIS support.'''
@@ -216,13 +224,13 @@ def install_site_files():
     sudo('rm -rf %(path)s/%(domain)s/site/*;'
          'tar zxf /tmp/%(domain)s.tar.gz -C %(path)s/%(domain)s/site/;'
          'rm /tmp/%(domain)s.tar.gz;' % env)
-    create_dirs() # Sets correct permissions
+    repair_permissions() # Sets correct permissions
 
 def install_requirements():
     with cd('%(path)s/%(domain)s' % env):
         sudo('source bin/activate;'
-             'pip install -E . -r site/requirements.txt;'
-             'chmod -Rf 755 lib src' % env)
+             'pip install -E . -r site/requirements.txt;')
+    repair_permissions()
 
 def install_site_conf():
     require('domain', 'site_config_dir')
@@ -245,6 +253,7 @@ def deploy():
     install_site_conf()
     collectstatic()
     compress()
+    repair_permissions()
     restart_webservers()
 
 def update(reqs='yes'):
@@ -256,6 +265,8 @@ def update(reqs='yes'):
     install_site_conf()
     collectstatic()
     compress()
+    repair_permissions()
+    restart_webservers()
 
 def destroy():
     ''' Removes ALL site files from the remote server. DANGER. '''
