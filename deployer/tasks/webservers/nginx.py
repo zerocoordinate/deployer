@@ -4,7 +4,7 @@ from fabric.contrib.files import exists
 
 def install_webserver():
     sudo('apt-get install -y python-software-properties', pty=True) # Required for add-apt-repository
-    sudo('add-apt-repository ppa:nginx/stable;') # Add nginx's PPA
+    sudo('yes|add-apt-repository ppa:nginx/stable;') # Add nginx's PPA
     sudo('apt-get update -y', pty=True)
     sudo('apt-get upgrade -y', pty=True)
     sudo('apt-get install -y nginx', pty=True)

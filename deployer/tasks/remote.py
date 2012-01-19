@@ -132,12 +132,12 @@ def install_system_packages():
 
 def install_LESS():
     sudo("apt-get install -y python-software-properties curl;"
-         "add-apt-repository ppa:jerome-etienne/neoip;"
-         "sudo apt-get update;"
-         "sudo apt-get install -y nodejs;"
+         "yes|add-apt-repository ppa:chris-lea/node.js;"
+         "apt-get update;"
+         "apt-get install -y nodejs;"
          "export skipclean=1;"
          "curl http://npmjs.org/install.sh | sudo -E sh;"
-         "sudo npm install less -g;")
+         "npm install less -g;")
 
 def install_databases():
     call_backend_task('databases', 'install_db')
@@ -352,16 +352,6 @@ def maintenance(state=None, branch="master"):
                 proceed = prompt('It appears that maintenance mode is already on. Continue? [y/N]: ', default='n', validate=yesno)
                 if not proceed:
                     abort('Canceled by user input.')
-        with lcd('../itlabs/static'):
-            local('git archive --format=tar %(branch)s | gzip > static.tar.gz' % env)
-            put('static.tar.gz', '/tmp/maintenance.tar.gz')
-            local('rm static.tar.gz')
-            sudo('rm -rf %(path)s/maintenance;'
-                 'mkdir %(path)s/maintenance;'
-                 'tar zxf /tmp/maintenance.tar.gz -C %(path)s/maintenance;'
-                 'chown -R %(user)s:%(group)s %(path)s/maintenance;'
-                 'chmod -R 750 %(path)s/maintenance;'
-                 'rm /tmp/maintenance.tar.gz;' % env)
         put('configs/nginx/maintenance', '/etc/nginx/sites-available/maintenance', use_sudo=True)
         if not exists('/etc/nginx/sites-enabled.old', use_sudo=True):
             sudo('mkdir /etc/nginx/sites-enabled.old')
