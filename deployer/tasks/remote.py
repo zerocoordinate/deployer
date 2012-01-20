@@ -246,7 +246,7 @@ def deploy():
     create_dirs()
     install_site_files()
     with cd('%(path)s/%(domain)s' % env):
-        sudo('virtualenv .')
+        sudo('virtualenv . --system-site-packages')
         with cd('site'):
             sudo('chown -R root:www-data .')
     install_requirements()
