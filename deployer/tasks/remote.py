@@ -139,6 +139,21 @@ def install_LESS():
          "curl http://npmjs.org/install.sh | sudo -E sh;"
          "npm install less -g;")
 
+def install_varnish():
+    put(os.path.join(env.config_dir, 'varnish', 'default.vcl'), '/tmp/default.vcl')
+    sudo('curl http://repo.varnish-cache.org/debian/GPG-key.txt | apt-key add -;'
+         'echo "deb http://repo.varnish-cache.org/ubuntu/ lucid varnish-3.0" >> /etc/apt/sources.list;'
+         'apt-get update;'
+         'apt-get install -y varnish;'
+         'mv /tmp/default.vcl /etc/varnish/default.vcl;')
+    start_varnish()
+
+def start_varnish():
+    sudo('varnishd -f /etc/varnish/default.vcl -s malloc,128M -T 127.0.0.1:2000;')
+
+def stop_varnish():
+    sudo('pkill varnish;')
+
 def install_databases():
     call_backend_task('databases', 'install_db')
 
