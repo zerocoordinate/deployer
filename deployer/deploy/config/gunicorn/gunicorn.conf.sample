@@ -1,0 +1,21 @@
+# Sample gunicorn.conf file to live in your project.
+
+import os
+import sys
+
+DOMAIN = "example.com"
+PATH = "/srv/%s/site/" % DOMAIN
+
+os.environ['DJANGO_SETTINGS_MODULE'] = "project.settings.production"
+sys.path.insert(0, PATH)
+
+preload_app = True
+workers = 4
+backlog = 2048
+loglevel = "debug"
+accesslog = "/var/log/gunicorn/access_%s.log" % DOMAIN
+errorlog = "/var/log/gunicorn/error_%s.log" % DOMAIN
+user =  "www-data"
+group = "www-data"
+bind = "unix:/tmp/%s.sock" % DOMAIN
+name = "%s" % DOMAIN
