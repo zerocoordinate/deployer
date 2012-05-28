@@ -244,7 +244,7 @@ def install_site_files():
 def install_requirements():
     with cd('%(path)s/%(domain)s' % env):
         sudo('source bin/activate;'
-             'pip install -E . -r site/requirements.txt;')
+             'pip install -r site/requirements.txt;')
     repair_permissions()
 
 def install_site_conf():
@@ -300,24 +300,24 @@ def compile():
 def syncdb():
     require('domain', 'app_name')
     with cd('%(path)s/%(domain)s' % env):
-        sudo('source bin/activate; bin/django-admin.py syncdb --noinput --pythonpath=site/%(app_name)s --settings=%(settings_module)s' % env)
+        sudo('source bin/activate; django-admin.py syncdb --noinput --pythonpath=site/%(app_name)s --settings=%(settings_module)s' % env)
 
 def migrate():
     require('domain', 'app_name')
     with cd('%(path)s/%(domain)s' % env):
-        sudo('source bin/activate; bin/django-admin.py migrate --pythonpath=site/%(app_name)s --settings=%(settings_module)s' % env)
+        sudo('source bin/activate; django-admin.py migrate --pythonpath=site/%(app_name)s --settings=%(settings_module)s' % env)
 
 def compress():
     if env.get('compress', False):
         require('domain', 'app_name')
         with cd('%(path)s/%(domain)s' % env):
-            sudo('source bin/activate; cd site/%(app_name)s; %(path)s/%(domain)s/bin/django-admin.py compress --pythonpath=`pwd` --settings=%(settings_module)s' % env)
+            sudo('source bin/activate; cd site/%(app_name)s; django-admin.py compress --pythonpath=`pwd` --settings=%(settings_module)s' % env)
 
 def collectstatic():
     require('domain', 'app_name')
     with cd('%(path)s/%(domain)s' % env):
         sudo('source bin/activate;'
-            'bin/django-admin.py collectstatic --noinput --pythonpath=site/%(app_name)s --settings=%(settings_module)s;'
+            'django-admin.py collectstatic --noinput --pythonpath=site/%(app_name)s --settings=%(settings_module)s;'
             'chmod -R 750 %(path)s/%(domain)s/static;'
             'chown -R root:www-data %(path)s/%(domain)s/static;' % env)
 
@@ -325,13 +325,13 @@ def loaddata(file):
     require('domain', 'app_name')
     put(file, '/tmp/loaddata.json')
     with cd('%(path)s/%(domain)s' % env):
-        sudo('source bin/activate; bin/django-admin.py loaddata /tmp/loaddata.json --pythonpath=site/%(app_name)s --settings=%(settings_module)s' % env)
+        sudo('source bin/activate; django-admin.py loaddata /tmp/loaddata.json --pythonpath=site/%(app_name)s --settings=%(settings_module)s' % env)
     sudo('rm /tmp/loaddata.json')
 
 def rebuild_index():
     require('domain', 'app_name')
     with cd('%(path)s/%(domain)s' % env):
-        sudo('source bin/activate; bin/django-admin.py rebuild_index --noinput --pythonpath=site/%(app_name)s --settings=%(settings_module)s' % env)
+        sudo('source bin/activate; django-admin.py rebuild_index --noinput --pythonpath=site/%(app_name)s --settings=%(settings_module)s' % env)
         sudo('chown -R root:www-data site/%(app_name)s;'
              'chmod -R 750 site/%(app_name)s' % env)
         if exists('site/%(app_name)s/_whoosh/' % env, use_sudo=True):
@@ -340,7 +340,7 @@ def rebuild_index():
 def update_index():
     require('domain', 'app_name')
     with cd('%(path)s/%(domain)s' % env):
-        sudo('source bin/activate; bin/django-admin.py update_index --pythonpath=site/%(app_name)s --settings=%(settings_module)s' % env)
+        sudo('source bin/activate; django-admin.py update_index --pythonpath=site/%(app_name)s --settings=%(settings_module)s' % env)
 
 
 def new_server():

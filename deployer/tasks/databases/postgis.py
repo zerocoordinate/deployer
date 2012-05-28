@@ -10,8 +10,8 @@ def install_db():
         'postgresql',
         'binutils',
         'gdal-bin',
-        'postgresql-8.4-postgis',
-        'postgresql-server-dev-8.4',
+        'postgresql-9.1-postgis',
+        'postgresql-server-dev-9.1',
         'libgeoip1',
         'python-gdal',
     )
@@ -27,8 +27,8 @@ def create_spatialdb_template():
         '/tmp/', mirror_local_mode=True)
     try:
         sudo('/tmp/create_template_postgis-debian.sh', user='postgres')
-    except:
-        pass #FIXME -- Don't catch everything and do nothing! At least abort with a useful error.
+    except Exception, exc:
+	print "There was an error creating the spatialdb template: %s" % exc
     finally:
         run('rm -f /tmp/create_template_postgis-debian.sh')
 
