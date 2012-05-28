@@ -244,7 +244,7 @@ def install_site_files():
 def install_requirements():
     with cd('%(path)s/%(domain)s' % env):
         sudo('source bin/activate;'
-             'pip install -r site/requirements.txt;')
+             'bin/pip install -r site/requirements.txt;')
     repair_permissions()
 
 def install_site_conf():
