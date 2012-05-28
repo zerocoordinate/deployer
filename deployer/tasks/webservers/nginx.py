@@ -8,6 +8,9 @@ def install_webserver():
     sudo('apt-get update -y', pty=True)
     sudo('apt-get upgrade -y', pty=True)
     sudo('apt-get install -y nginx', pty=True)
+    # Create our socket.
+    sudo('touch /tmp/%(domain)s.sock' % env)
+    sudo('chown www-data:www-data /tmp/%(domain)s.sock' % env)
     #install_uwsgi()
 
 def remove_default_site():
