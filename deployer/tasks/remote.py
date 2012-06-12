@@ -189,7 +189,7 @@ def repair_permissions():
          # Site dir (python and config files) should be read + execute
          'chmod -Rf 750 %(domain)s/site;'
          # Virtualenv dirs need to be executable
-         'chmod -Rf 750 %(domain)s/lib %(domain)s/src;'
+         'chmod -Rf 750 %(domain)s/lib %(domain)s/src %(domain)s/bin;'
          'chmod 750 %(domain)s;' % env)
 
 def configure_databases():
