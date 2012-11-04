@@ -185,6 +185,8 @@ def repair_permissions():
          'chmod -R 700 %(domain)s;'
          # Start group needs write permission on the root for the domain.
          'chmod 750 %(domain)s;'
+         # "Local" should be read + write for www-data
+         'chmod -Rf 770 %(domain)s/local;'
          # Media should be read + write for www-data
          'chmod -Rf 770 %(domain)s/media;'
          # Static needs read + execute for www-data (not sure why it needs execute, but it does)
