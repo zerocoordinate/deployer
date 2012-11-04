@@ -134,9 +134,7 @@ def install_LESS():
     sudo("apt-get install -y python-software-properties curl;"
          "yes|add-apt-repository ppa:chris-lea/node.js;"
          "apt-get update;"
-         "apt-get install -y nodejs;"
-         "export skipclean=1;"
-         "curl http://npmjs.org/install.sh | sudo -E sh;"
+         "apt-get install -y nodejs npm;"
          "npm install less -g;")
 
 def install_varnish():
@@ -146,13 +144,16 @@ def install_varnish():
          'apt-get update;'
          'apt-get install -y varnish;'
          'mv /tmp/default.vcl /etc/varnish/default.vcl;')
-    start_varnish()
 
 def start_varnish():
     sudo('varnishd -f /etc/varnish/default.vcl -s malloc,128M -T 127.0.0.1:2000;')
 
 def stop_varnish():
     sudo('pkill varnish;')
+
+def restart_varnish():
+    stop_varnish()
+    start_varnish()
 
 def install_databases():
     call_backend_task('databases', 'install_db')
@@ -182,6 +183,8 @@ def repair_permissions():
          'chown -Rf root:www-data %(domain)s;'
          # Start with a baseline of no permissions for anyone but root.
          'chmod -R 700 %(domain)s;'
+         # Start group needs write permission on the root for the domain.
+         'chmod 750 %(domain)s;'
          # Media should be read + write for www-data
          'chmod -Rf 770 %(domain)s/media;'
          # Static needs read + execute for www-data (not sure why it needs execute, but it does)
@@ -225,10 +228,7 @@ def configure_webservers():
 
 def restart_webservers():
     call_backend_task('webservers', 'restart_webserver')
-
-def reload_app():
-    require('domain')
-    sudo('touch %(path)s/%(domain)s/site/uwsgi.ini' % env)
+    restart_varnish()
 
 def install_site_files():
     ''' Default implementation uploads an archive from current project directory. '''
@@ -353,8 +353,10 @@ def new_server():
     install_system_packages()
     install_databases()
     install_webservers()
+    install_varnish()
     configure_databases()
     configure_webservers()
+    restart_varnish()
 
 
 def maintenance(state=None, branch="master"):
